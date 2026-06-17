@@ -14,12 +14,22 @@ class DummyHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"Bot esta a correr perfeitamente!")
 
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        # Silenciar os logs de acesso (Render e UptimeRobot pingam constantemente)
+        return
+
 def run_dummy_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), DummyHandler)
     server.serve_forever()
 
 # --- CONFIGURAÇÃO DO GITHUB ---
+# Os seus links reais do repositório chancellorlono-afk/whatappfootballportugues
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/chancellorlono-afk/whatappfootballportugues/main/"
 
 # Nomes exatos dos ficheiros da sua imagem (com os espaços codificados como %20)
@@ -29,6 +39,7 @@ IMAGE_URLS = [
     f"{GITHUB_BASE_URL}PHOTO-2026-06-16-19-19-43%203.jpg",
     f"{GITHUB_BASE_URL}PHOTO-2026-06-16-19-19-43%202.jpg"
 ]
+
 
 async def send_sequence(context: ContextTypes.DEFAULT_TYPE):
     """Esta função executa a sequência inteira e será chamada a cada 6 horas."""
@@ -66,9 +77,8 @@ async def send_sequence(context: ContextTypes.DEFAULT_TYPE):
         media_group = [InputMediaPhoto(media=url) for url in IMAGE_URLS]
         await context.bot.send_media_group(chat_id=chat_id, media=media_group)
     except Exception as e:
-        print(f"Erro ao enviar imagens (verifique se a URL do GitHub está correta): {e}")
-        # Agora o bot avisa no chat caso falhe o download das imagens
-        error_msg = "⚠️ *Aviso do Sistema:* As imagens falharam a carregar. Verifique se configurou a URL do GitHub no código."
+        print(f"Erro ao enviar imagens: {e}")
+        error_msg = "⚠️ *Aviso do Sistema:* As imagens falharam a carregar. Verifique o link do GitHub."
         await context.bot.send_message(chat_id=chat_id, text=error_msg, parse_mode='Markdown')
 
     # 4. Enviar o link do canal de novo
@@ -90,22 +100,31 @@ async def send_sequence(context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Gere o comando /start e inicia o ciclo para o utilizador."""
     chat_id = update.effective_chat.id
-    
+
+    # Verificação de segurança: caso o JobQueue não esteja instalado
+    if context.job_queue is None:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="⚠️ O JobQueue não está instalado. Adicione `python-telegram-bot[job-queue]` ao requirements.txt."
+        )
+        return
+
     # Parar trabalhos anteriores deste utilizador para evitar envio duplicado se ele fizer /start 2 vezes
     current_jobs = context.job_queue.get_jobs_by_name(str(chat_id))
     for job in current_jobs:
         job.schedule_removal()
 
-    # Iniciar um trabalho repetitivo. 
+    # Iniciar um trabalho repetitivo.
     # interval=21600 (6 horas em segundos: 6 * 60 * 60)
     # first=0 (executa a primeira vez de imediato)
     context.job_queue.run_repeating(
-        send_sequence, 
-        interval=21600, 
-        first=0, 
-        chat_id=chat_id, 
+        send_sequence,
+        interval=21600,
+        first=0,
+        chat_id=chat_id,
         name=str(chat_id)
     )
+
 
 def main():
     # O Render vai fornecer o BOT_TOKEN pelas Environment Variables
@@ -119,12 +138,13 @@ def main():
 
     # Iniciar a aplicação do Bot
     application = Application.builder().token(token).build()
-    
+
     # Adicionar o handler do comando /start
     application.add_handler(CommandHandler("start", start))
-    
+
     print("O Bot está a correr...")
     application.run_polling()
+
 
 if __name__ == '__main__':
     main()
