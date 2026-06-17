@@ -1,7 +1,23 @@
 import os
 import asyncio
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from telegram import Update, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, ContextTypes
+
+# --- SERVIDOR WEB FALSO PARA O RENDER ---
+# O Render exige que os "Web Services" usem uma porta, caso contrário falham e reiniciam.
+class DummyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b"Bot esta a correr perfeitamente!")
+
+def run_dummy_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), DummyHandler)
+    server.serve_forever()
 
 # --- CONFIGURAÇÃO DO GITHUB ---
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/chancellorlono-afk/whatappfootballportugues/main/"
@@ -97,6 +113,9 @@ def main():
     if not token:
         print("ERRO: A variável de ambiente BOT_TOKEN não foi definida!")
         return
+
+    # Iniciar a thread do servidor web falso (Para o Render não desligar o bot)
+    threading.Thread(target=run_dummy_server, daemon=True).start()
 
     # Iniciar a aplicação do Bot
     application = Application.builder().token(token).build()
