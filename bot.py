@@ -4,9 +4,7 @@ from telegram import Update, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # --- CONFIGURAÇÃO DO GITHUB ---
-# ATENÇÃO: Substitua 'SEU_NOME_DE_USUARIO' e 'NOME_DO_REPOSITORIO' pelos seus dados reais do GitHub!
-# Exemplo: Se o seu link for https://github.com/nunomorais/imagens-bot/, coloque 'nunomorais/imagens-bot'
-GITHUB_BASE_URL = "https://raw.githubusercontent.com/SEU_NOME_DE_USUARIO/NOME_DO_REPOSITORIO/main/"
+GITHUB_BASE_URL = "https://raw.githubusercontent.com/chancellorlono-afk/whatappfootballportugues/main/"
 
 # Nomes exatos dos ficheiros da sua imagem (com os espaços codificados como %20)
 IMAGE_URLS = [
@@ -53,6 +51,9 @@ async def send_sequence(context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_media_group(chat_id=chat_id, media=media_group)
     except Exception as e:
         print(f"Erro ao enviar imagens (verifique se a URL do GitHub está correta): {e}")
+        # Agora o bot avisa no chat caso falhe o download das imagens
+        error_msg = "⚠️ *Aviso do Sistema:* As imagens falharam a carregar. Verifique se configurou a URL do GitHub no código."
+        await context.bot.send_message(chat_id=chat_id, text=error_msg, parse_mode='Markdown')
 
     # 4. Enviar o link do canal de novo
     await context.bot.send_message(chat_id=chat_id, text=link_msg)
